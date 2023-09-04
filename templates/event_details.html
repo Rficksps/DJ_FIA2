@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <title>Event Details</title>
+</head>
+<body class="w3-container">
+    {% include 'navbar.html' %}
+
+    <h1>Event Details</h1>
+    <img src="{{ event_image_url }}" alt="Event Image" width="300">
+
+    <h2>{{ event[0] }}</h2>
+    <p>Description: {{ event[1] }}</p>
+    <p>Time: {{ times[event[0]].strftime('%H:%M:%S-%d-%m-%Y') }}</p>
+
+    <a href="{{ url_for('join_event') }}" class="w3-button w3-blue">Back to Events</a>
+
+</body>
+</html>

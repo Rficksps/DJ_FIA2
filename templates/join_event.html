@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <title>Join Event</title>
+</head>
+<body class="w3-container">
+    {% include 'navbar.html' %}
+
+    <h1>Join Event</h1>
+
+    <h2>Available Events:</h2>
+    <ul>
+        {% for event in events %}
+            <li>
+                <a href="{{ url_for('event_details', event_id=event[0]) }}">
+                    {{ event[0] }} - {{ event[1] }} - {{ times[event[0]].strftime('%H:%M:%S-%d-%m-%Y') }}
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+
+</body>
+</html>
+
+

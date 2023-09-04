@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <title>Search Results</title>
+    <style>
+        /* Add your custom CSS styling here */
+        .track-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .album-cover {
+            width: 100px;
+            height: 100px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body class="w3-container">
+    {% include 'navbar.html' %}
+
+    <h1>Search Results</h1>
+
+<div class="w3-container">
+    {% if track_matches %}
+        {% for track in track_matches %}
+            <div class="track-container">
+                {% if track.album_image %}
+                    <img src="{{ track.album_image }}" alt="Album Cover" class="album-cover">
+                {% else %}
+                    <img src="{{ url_for('static', filename='placeholder.png') }}" alt="Album Cover" class="album-cover">
+                {% endif %}
+                <div>
+                    <h2>{{ track.name }}</h2>
+                    <p>Artist: {{ track.artist }}</p>
+                    {% if track.album_name %}
+                        <p>Album: {{ track.album_name }}</p>
+                    {% else %}
+                        <p>Album: Unknown</p>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>No results found.</p>
+    {% endif %}
+</div>
+
+
+</body>
+</html>

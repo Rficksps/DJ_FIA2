@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <title>Search Song</title>
+</head>
+<body class="w3-container">
+    {% include 'navbar.html' %}
+
+    <h1>Search for a Song</h1>
+
+    <form action="{{ url_for('search_song') }}" method="post" class="w3-container w3-card-4 w3-padding">
+        <label>Track Name:</label>
+        <input type="text" name="track_name" class="w3-input w3-border" required>
+        <button type="submit" class="w3-button w3-teal">Search</button>
+    </form>
+</body>
+</html>

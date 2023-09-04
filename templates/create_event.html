@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <title>Create Event</title>
+</head>
+<body class="w3-container">
+    {% include 'navbar.html' %}
+
+    <h1>Create Event</h1>
+
+    <form action="{{ url_for('create_event') }}" method="post" enctype="multipart/form-data">
+        <label for="event_name">Event Name:</label>
+        <input type="text" id="event_name" name="event_name" required><br>
+
+        <label for="event_description">Event Description:</label><br>
+        <textarea id="event_description" name="event_description" rows="4" cols="50" required></textarea><br>
+
+        <label for="event_time">Event Time:</label>
+        <input type="datetime-local" id="event_time" name="event_time" required><br>
+
+        <label for="event_image">Event Image:</label>
+        <input type="file" id="event_image" name="event_image"><br>
+
+        <input type="submit" value="Create Event" class="w3-button w3-green">
+    </form>
+
+    <a href="{{ url_for('home') }}" class="w3-button w3-blue">Back to Home</a>
+</body>
+</html>
