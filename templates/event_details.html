@@ -8,13 +8,21 @@
     {% include 'navbar.html' %}
 
     <h1>Event Details</h1>
-    <img src="{{ event_image_url }}" alt="Event Image" width="300">
+    <img src="{{ event_image_path }}" alt="Event Image" width="300">
 
     <h2>{{ event[0] }}</h2>
     <p>Description: {{ event[1] }}</p>
-    <p>Time: {{ times[event[0]].strftime('%H:%M:%S-%d-%m-%Y') }}</p>
+    <p>Time: {{ event_time }}</p>
+
+        <!-- Add a section to display the list of users in the event -->
+    <h2>Users:</h2>
+    <ul>
+        {% for user in event_users %}
+            <li>{{ user[0] }}</li>
+        {% endfor %}
+    </ul>
+
 
     <a href="{{ url_for('join_event') }}" class="w3-button w3-blue">Back to Events</a>
-
 </body>
 </html>

@@ -5,6 +5,8 @@ import requests
 import datetime
 import sqlite3
 import time
+import secrets
+import string
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from markupsafe import Markup
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -24,7 +26,9 @@ def init_db():
     with app.app_context():
         db = sqlite3.connect('events2.db')  # Use 'events2.db' for events
         cursor = db.cursor()
-        cursor.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT UNIQUE, password TEXT)''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT)''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, time INTEGER, image_path TEXT, event_code TEXT)''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS user_events (user_id INTEGER, event_id INTEGER)''')
         db.commit()
 
         # Check if the "image_path" column exists, and if not, add it
@@ -33,6 +37,7 @@ def init_db():
         if 'image_path' not in columns:
             cursor.execute('''ALTER TABLE events ADD COLUMN image_path TEXT''')
             db.commit()
+
 
 
 
@@ -79,21 +84,39 @@ def logout():
     session.pop('user', None)
     return redirect(url_for('home'))
 
-@app.route('/join_event')
+@app.route('/events', methods=['GET', 'POST'])
 def join_event():
+    if request.method == 'POST':
+        event_code = request.form['event_code']
+        # Check if the event code exists in the database
+        conn = sqlite3.connect('events2.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM events WHERE event_code = ?', (event_code,))
+        event_id = cursor.fetchone()
+        conn.close()
+
+        if event_id:
+            # If the event code exists, add an entry to the user_events table
+            conn = sqlite3.connect('events2.db')
+            cursor = conn.cursor()
+            cursor.execute('INSERT INTO user_events (user_id, event_id) VALUES (?, ?)', (session['user'], event_id[0]))
+            conn.commit()
+            conn.close()
+            flash('Joined the event successfully!', 'success')
+        else:
+            flash('Event code not found!', 'danger')
+
+        return redirect(url_for('join_event'))
+
+    # Fetch events from the database
     conn = sqlite3.connect('events2.db')
     cursor = conn.cursor()
-    select_query = 'SELECT * FROM events'
-    cursor.execute(select_query)
+    cursor.execute('SELECT * FROM events')
     events = cursor.fetchall()
-
-    times = {}
-    for event in events:
-        times[event[0]] = datetime.datetime.fromtimestamp(int(event[2]))
-
     conn.close()
 
-    return render_template('join_event.html', events=events, times=times)
+    return render_template('join_event.html', events=events)
+
 
 @app.route('/event_details/<event_id>')
 def event_details(event_id):
@@ -112,6 +135,8 @@ def event_details(event_id):
         flash('Event not found!', 'danger')
         return redirect(url_for('join_event'))
 
+    cursor.execute('SELECT u.username FROM users u INNER JOIN user_events ue ON u.id = ue.user_id WHERE ue.event_id = ?', (event[0],))
+    event_users = cursor.fetchall()
 @app.route('/create_event', methods=['GET', 'POST'])
 def create_event():
     if request.method == 'POST':
@@ -131,11 +156,13 @@ def create_event():
             # Use a default image path if no image is provided
             image_path = 'default_image_path.jpg'
 
+        event_code = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
+
         conn = sqlite3.connect('events2.db')
         cursor = conn.cursor()
 
-        insert_query = 'INSERT INTO events (name, description, time, image_path) VALUES (?, ?, ?, ?)'
-        cursor.execute(insert_query, (name, description, event_time_unix, image_path))
+        insert_query = 'INSERT INTO events (name, description, time, image_path, event_code) VALUES (?, ?, ?, ?, ?)'
+        cursor.execute(insert_query, (name, description, event_time_unix, image_path, event_code))
 
         conn.commit()
         conn.close()

@@ -2,25 +2,30 @@
 <html>
 <head>
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
-    <title>Join Event</title>
+    <title>Events</title>
 </head>
 <body class="w3-container">
     {% include 'navbar.html' %}
 
-    <h1>Join Event</h1>
+    <h1>Events</h1>
+
+    <!-- Add the event code input form -->
+    <form action="{{ url_for('join_event_form') }}" method="post">
+        <label for="event_code">Enter Event Code:</label>
+        <input type="text" id="event_code" name="event_code" required>
+        <button type="submit" class="w3-button w3-green">Join Event</button>
+    </form>
+
 
     <h2>Available Events:</h2>
     <ul>
         {% for event in events %}
             <li>
                 <a href="{{ url_for('event_details', event_id=event[0]) }}">
-                    {{ event[0] }} - {{ event[1] }} - {{ times[event[0]].strftime('%H:%M:%S-%d-%m-%Y') }}
+                    {{ event[0] }} - {{ event[1] }} - {{ event[2] }}
                 </a>
             </li>
         {% endfor %}
     </ul>
-
 </body>
 </html>
-
-

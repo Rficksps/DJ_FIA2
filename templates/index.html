@@ -10,7 +10,7 @@
     {% if session['user'] %}
         <p>You are logged in as {{ session['user'] }}!</p>
         <a href="{{ url_for('logout') }}" class="w3-button w3-red">Logout</a>
-        <a href=" {{ url_for('join_event') }}" class="w3-button w3-red">Join Event</a>
+        <a href=" {{ url_for('join_event') }}" class="w3-button w3-red">Events</a>
         <a href=" {{ url_for('create_event') }}" class="w3-button w3-red">Create Event</a>
         <a href=" {{ url_for('search_song') }}" class="w3-button w3-red">Search Song</a>
     {% else %}
