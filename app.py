@@ -5,12 +5,15 @@ import requests
 import datetime
 import sqlite3
 import time
+from datetime import timezone
 import secrets
 import string
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from markupsafe import Markup
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 app = Flask(__name__)
 app.secret_key = 's3cr3t'
@@ -24,11 +27,10 @@ def allowed_file(filename):
 
 def init_db():
     with app.app_context():
-        db = sqlite3.connect('events2.db')  # Use 'events2.db' for events
+        db = sqlite3.connect('events3.db')  # Use 'events3.db' for events
         cursor = db.cursor()
         cursor.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT)''')
         cursor.execute('''CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, time INTEGER, image_path TEXT, event_code TEXT)''')
-        cursor.execute('''CREATE TABLE IF NOT EXISTS user_events (user_id INTEGER, event_id INTEGER)''')
         db.commit()
 
         # Check if the "image_path" column exists, and if not, add it
@@ -36,6 +38,11 @@ def init_db():
         columns = [column[1] for column in cursor.fetchall()]
         if 'image_path' not in columns:
             cursor.execute('''ALTER TABLE events ADD COLUMN image_path TEXT''')
+            db.commit()
+
+        # Check if the "event_code" column exists, and if not, add it
+        if 'event_code' not in columns:
+            cursor.execute('''ALTER TABLE events ADD COLUMN event_code TEXT''')
             db.commit()
 
 
@@ -53,7 +60,7 @@ def register():
         password = request.form['password']
         hashed_password = generate_password_hash(password, method='sha256')
         try:
-            with sqlite3.connect('users.db') as db:
+            with sqlite3.connect('events3.db') as db:
                 cursor = db.cursor()
                 cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, hashed_password))
                 db.commit()
@@ -68,12 +75,12 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        with sqlite3.connect('users.db') as db:
+        with sqlite3.connect('events3.db') as db:
             cursor = db.cursor()
             cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
             user = cursor.fetchone()
-            if user and check_password_hash(user[1], password):
-                session['user'] = user[0]
+            if user and check_password_hash(user[2], password):
+                session['user'] = user[1]
                 return redirect(url_for('home'))
             else:
                 flash('Invalid username or password!', 'danger')
@@ -84,12 +91,19 @@ def logout():
     session.pop('user', None)
     return redirect(url_for('home'))
 
+
 @app.route('/events', methods=['GET', 'POST'])
 def join_event():
     if request.method == 'POST':
         event_code = request.form['event_code']
+
+        # Check if the event code is alphanumeric (letters and digits only)
+        if not event_code.isalnum():
+            flash('Invalid event code format!', 'danger')
+            return redirect(url_for('join_event'))
+
         # Check if the event code exists in the database
-        conn = sqlite3.connect('events2.db')
+        conn = sqlite3.connect('events3.db')
         cursor = conn.cursor()
         cursor.execute('SELECT id FROM events WHERE event_code = ?', (event_code,))
         event_id = cursor.fetchone()
@@ -97,7 +111,7 @@ def join_event():
 
         if event_id:
             # If the event code exists, add an entry to the user_events table
-            conn = sqlite3.connect('events2.db')
+            conn = sqlite3.connect('events3.db')
             cursor = conn.cursor()
             cursor.execute('INSERT INTO user_events (user_id, event_id) VALUES (?, ?)', (session['user'], event_id[0]))
             conn.commit()
@@ -109,7 +123,7 @@ def join_event():
         return redirect(url_for('join_event'))
 
     # Fetch events from the database
-    conn = sqlite3.connect('events2.db')
+    conn = sqlite3.connect('events3.db')
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM events')
     events = cursor.fetchall()
@@ -120,56 +134,75 @@ def join_event():
 
 @app.route('/event_details/<event_id>')
 def event_details(event_id):
-    conn = sqlite3.connect('events2.db')
-    cursor = conn.cursor()
-    select_query = 'SELECT * FROM events WHERE name = ?'
-    cursor.execute(select_query, (event_id,))
-    event = cursor.fetchone()
-    conn.close()
+    try:
+        conn = sqlite3.connect('events3.db')
+        cursor = conn.cursor()
 
-    if event:
-        event_time = datetime.datetime.fromtimestamp(int(event[2])).strftime('%H:%M:%S-%d-%m-%Y')
-        event_image_path = event[3] if event[3] else 'default_event_image.jpg'
-        return render_template('event_details.html', event=event, event_time=event_time, event_image_path=event_image_path)
-    else:
-        flash('Event not found!', 'danger')
+        # Check if the event ID exists in the database
+        cursor.execute('SELECT * FROM events WHERE id = ?', (event_id,))
+        event = cursor.fetchone()
+
+        print(event)
+        if event:
+            # Fetch event users here and store in event_users
+
+            # Make sure you pass the correct event_code to the template
+            return render_template('event_details.html', event=event)
+        else:
+            flash('Event not found!', 'danger')
+            return redirect(url_for('join_event'))
+
+    except ValueError:
+        flash('Invalid event ID!', 'danger')
         return redirect(url_for('join_event'))
 
-    cursor.execute('SELECT u.username FROM users u INNER JOIN user_events ue ON u.id = ue.user_id WHERE ue.event_id = ?', (event[0],))
-    event_users = cursor.fetchall()
+
+
+
+from datetime import datetime
+
 @app.route('/create_event', methods=['GET', 'POST'])
 def create_event():
     if request.method == 'POST':
         name = request.form['event_name']
         description = request.form['event_description']
-        event_time = request.form['event_time']
+        event_time_str = request.form['event_time']  # Get the datetime string from the form
 
-        event_time_obj = datetime.datetime.strptime(event_time, '%Y-%m-%dT%H:%M')
-        event_time_unix = int(event_time_obj.timestamp())
+        try:
+            # Parse the event_time_str into a datetime object
+            event_time_obj = datetime.strptime(event_time_str, '%Y-%m-%dT%H:%M')
 
-        event_image = request.files['event_image']
-        if event_image:
-            # Save the image to a specific folder
-            image_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(event_image.filename))
-            event_image.save(image_path)
-        else:
-            # Use a default image path if no image is provided
-            image_path = 'default_image_path.jpg'
+            # Convert the event_time to a Unix timestamp (in UTC)
+            event_time_unix = event_time_obj.replace(tzinfo=timezone.utc).timestamp()
 
-        event_code = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
+            event_image = request.files['event_image']
+            if event_image:
+                # Save the image to a specific folder
+                image_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(event_image.filename))
+                event_image.save(image_path)
+            else:
+                # Use a default image path if no image is provided
+                image_path = 'default_image_path.jpg'
 
-        conn = sqlite3.connect('events2.db')
-        cursor = conn.cursor()
+            event_code = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
 
-        insert_query = 'INSERT INTO events (name, description, time, image_path, event_code) VALUES (?, ?, ?, ?, ?)'
-        cursor.execute(insert_query, (name, description, event_time_unix, image_path, event_code))
+            conn = sqlite3.connect('events3.db')
+            cursor = conn.cursor()
 
-        conn.commit()
-        conn.close()
+            insert_query = 'INSERT INTO events (name, description, time, image_path, event_code) VALUES (?, ?, ?, ?, ?)'
+            cursor.execute(insert_query, (name, description, event_time_unix, image_path, event_code))
 
-        return redirect(url_for('home'))
+            conn.commit()
+            conn.close()
+
+            return redirect(url_for('home'))
+
+        except ValueError:
+            flash('Invalid event time format!', 'danger')
 
     return render_template('create_event.html')
+
+
 
 
 def unixtimestampformat(value):
