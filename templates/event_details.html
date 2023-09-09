@@ -20,8 +20,11 @@
     <!-- Add a section to display the list of users in the event -->
     <h2>Users:</h2>
     <ul>
-
+        {% for user in event_users %}
+            <li>{{ user }}</li>
+        {% endfor %}
     </ul>
+
 
     <a href="{{ url_for('join_event') }}" class="w3-button w3-blue">Back to Events</a>
 </body>

@@ -8,6 +8,9 @@
     {% include 'navbar.html' %}
 
     <h1>Account Page</h1>
-    <!-- Your account-related content goes here comment -->
+    <h3>Username: {{ current_user.username }}</h3>
+    <h3>User ID: {{ current_user.id }}</h3>
+    <!-- Other account-related content can be added here -->
 </body>
 </html>
+

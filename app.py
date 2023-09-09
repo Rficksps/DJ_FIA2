@@ -31,6 +31,8 @@ def init_db():
         cursor = db.cursor()
         cursor.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT)''')
         cursor.execute('''CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, time INTEGER, image_path TEXT, event_code TEXT)''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS playlist (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER, user_id INTEGER, FOREIGN KEY (event_id) REFERENCES events(id), FOREIGN KEY (user_id) REFERENCES users(id))''')
+
         db.commit()
 
         # Check if the "image_path" column exists, and if not, add it
@@ -110,10 +112,16 @@ def join_event():
         conn.close()
 
         if event_id:
-            # If the event code exists, add an entry to the user_events table
+            # If the event code exists, add an entry to the playlist table
             conn = sqlite3.connect('events3.db')
             cursor = conn.cursor()
-            cursor.execute('INSERT INTO user_events (user_id, event_id) VALUES (?, ?)', (session['user'], event_id[0]))
+
+            # Get the user's ID from the session
+            cursor.execute('SELECT id FROM users WHERE username = ?', (session['user'],))
+            user_id = cursor.fetchone()
+
+            # Insert the user's ID and event ID into the playlist table
+            cursor.execute('INSERT INTO playlist (user, event) VALUES (?, ?)', (user_id[0], event_id[0]))
             conn.commit()
             conn.close()
             flash('Joined the event successfully!', 'success')
@@ -122,14 +130,34 @@ def join_event():
 
         return redirect(url_for('join_event'))
 
-    # Fetch events from the database
+    # Fetch events from the database based on user join status
     conn = sqlite3.connect('events3.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM events')
-    events = cursor.fetchall()
+
+    # Get the user's ID from the session
+    cursor.execute('SELECT id FROM users WHERE username = ?', (session['user'],))
+    user_id = cursor.fetchone()
+
+    if user_id:
+        # Fetch events that the user has joined
+        cursor.execute(
+            'SELECT events.id, events.name, events.description, events.time FROM events JOIN playlist ON events.id = playlist.event WHERE playlist.user = ?',
+            (user_id[0],))
+        joined_events = cursor.fetchall()
+
+        # Fetch events that the user has not joined
+        cursor.execute(
+            'SELECT id, name, description, time FROM events WHERE id NOT IN (SELECT event FROM playlist WHERE user = ?)',
+            (user_id[0],))
+        other_events = cursor.fetchall()
+    else:
+        # If the user is not logged in, display all events
+        cursor.execute('SELECT * FROM events')
+        events = cursor.fetchall()
+
     conn.close()
 
-    return render_template('join_event.html', events=events)
+    return render_template('join_event.html', joined_events=joined_events, other_events=other_events)
 
 
 @app.route('/event_details/<event_id>')
@@ -142,12 +170,12 @@ def event_details(event_id):
         cursor.execute('SELECT * FROM events WHERE id = ?', (event_id,))
         event = cursor.fetchone()
 
-        print(event)
         if event:
-            # Fetch event users here and store in event_users
+            # Fetch the list of users who have joined the event
+            cursor.execute('SELECT username FROM users INNER JOIN playlist ON users.id = playlist.user WHERE playlist.event = ?', (event_id,))
+            event_users = [row[0] for row in cursor.fetchall()]
 
-            # Make sure you pass the correct event_code to the template
-            return render_template('event_details.html', event=event)
+            return render_template('event_details.html', event=event, event_users=event_users)
         else:
             flash('Event not found!', 'danger')
             return redirect(url_for('join_event'))
@@ -155,6 +183,7 @@ def event_details(event_id):
     except ValueError:
         flash('Invalid event ID!', 'danger')
         return redirect(url_for('join_event'))
+
 
 
 
@@ -213,7 +242,20 @@ app.jinja_env.filters['unixtimestampformat'] = unixtimestampformat
 
 @app.route('/account')
 def account():
-    return render_template('account.html')
+    if 'user' in session:
+        user_id = None
+        username = session['user']
+        with sqlite3.connect('events3.db') as db:
+            cursor = db.cursor()
+            cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
+            user = cursor.fetchone()
+            if user:
+                user_id = user[0]
+        return render_template('account.html', current_user={'username': username, 'id': user_id})
+    else:
+        flash('You must be logged in to access your account.', 'danger')
+        return redirect(url_for('login'))
+
 
 @app.route('/search_song', methods=['GET', 'POST'])
 def search_song():
@@ -259,4 +301,3 @@ def get_album_info(track_name, artist, api_key):
 if __name__ == '__main__':
     init_db()
     app.run(debug=True)
-

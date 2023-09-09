@@ -7,7 +7,7 @@
 <body class="w3-container">
     {% include 'navbar.html' %}
 
-    <h1>Events</h1>
+    <h2>Join Events:</h2>
 
     <!-- Add the event code input form -->
     <form action="{{ url_for('join_event') }}" method="post">
@@ -18,10 +18,10 @@
 
     <h2>Available Events:</h2>
     <ul>
-        {% for event in events %}
+        {% for joined_event in joined_events %}
             <li>
-                <a href="{{ url_for('event_details', event_id=event[0]) }}">
-                    {{ event[1] }} - {{ event[2] }} - {{ event[3] }}
+                <a href="{{ url_for('event_details', event_id=joined_event[0]) }}">
+                    {{ joined_event[1] }} - {{ joined_event[2] }} - {{ joined_event[3] }}
                 </a>
             </li>
         {% endfor %}
